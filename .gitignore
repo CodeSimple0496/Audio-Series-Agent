@@ -1,0 +1,15 @@
+# Python Cache
+__pycache__/
+*.pyc
+
+# Massive Executables
+*.exe
+ffmpeg.zip
+temp_audio_chunks/
+
+# Generated Audio Files
+*.mp3
+
+# Virtual Environments
+venv/
+.env
