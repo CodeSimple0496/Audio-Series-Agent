@@ -9,9 +9,9 @@ import random
 TRANSLATION_BLOCK_SIZE = 2000 
 TTS_CHUNK_SIZE = 500
 
-# Reuse translator instances
+# Reuse Google translator for high-accuracy Hindi conversion
 GOOGLE = GoogleTranslator(source='en', target='hi')
-MYMEMORY = MyMemoryTranslator(source='en', target='hi')
+
 
 def split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE):
     """
@@ -53,27 +53,22 @@ def contains_too_much_english(text, threshold=0.15):
 
 def translate_chunk(chunk, max_retries=3):
     """
-    Translates a single chunk with retry logic, optimized for accuracy.
+    Translates a single block using Google Translate with high-accuracy contextual logic.
     """
     if not chunk or not chunk.strip():
         return ""
     
-    translators = [GOOGLE, MYMEMORY]
     current_text = chunk
-    
     for attempt in range(max_retries):
         try:
             if attempt > 0:
-                time.sleep(random.uniform(0.5, 1.5)) 
+                time.sleep(random.uniform(1.0, 2.0)) 
             
-            translator = translators[attempt % len(translators)]
-            translated = translator.translate(current_text)
+            translated = GOOGLE.translate(current_text)
             
-            # High-accuracy check: prioritize Google result if it's mostly Hindi
             if translated and not contains_too_much_english(translated):
                 return translated
             
-            # If still needs translation, try again
             current_text = translated if (translated and len(translated) > 10) else chunk
             
         except Exception as e:
@@ -82,6 +77,7 @@ def translate_chunk(chunk, max_retries=3):
                 time.sleep(2 ** attempt) 
             
     return current_text
+
 
 def translate_text(text, max_workers=20):
     """Orchestrates contextual translation before splitting into TTS chunks."""
