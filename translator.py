@@ -4,6 +4,10 @@ import re
 import time
 import random
 
+# Reuse translator instances to save resources
+GOOGLE = GoogleTranslator(source='en', target='hi')
+MYMEMORY = MyMemoryTranslator(source='en', target='hi')
+
 def split_into_chunks(text, max_chars=400):
     """
     Split text into chunks of at most max_chars, trying to split on sentence boundaries.
@@ -38,52 +42,56 @@ def split_into_chunks(text, max_chars=400):
         chunks.append(current_chunk.strip())
     return chunks
 
-def contains_english(text):
-    """Check if the text contains any English alphabet characters."""
-    return bool(re.search(r'[a-zA-Z]', text))
+def contains_too_much_english(text, threshold=0.15):
+    """
+    Returns True if more than threshold% of the text is English characters.
+    Allows for proper nouns, numbers, and technical terms without triggering retries.
+    """
+    if not text:
+        return False
+    # Count only English alphabet characters
+    eng_chars = len(re.findall(r'[a-zA-Z]', text))
+    return (eng_chars / len(text)) > threshold
 
 def translate_chunk(chunk, max_retries=3):
     """
-    Translates a single chunk with retry logic and fallback.
-    Ensures translation actually happened by checking for English presence.
+    Translates a single chunk with retry logic, but optimized for speed on success.
     """
     if not chunk or not chunk.strip():
         return ""
     
-    # Try GoogleTranslator first, then MyMemory if fails
-    translators = [
-        GoogleTranslator(source='en', target='hi'),
-        MyMemoryTranslator(source='en', target='hi')
-    ]
-    
+    translators = [GOOGLE, MYMEMORY]
     current_text = chunk
+    
     for attempt in range(max_retries):
         try:
-            # Use alternating translators on retries
+            # 1. No sleep on the first attempt - maximum speed!
+            if attempt > 0:
+                # Stagger only if retrying to avoid further rate limits
+                time.sleep(random.uniform(0.5, 1.5)) 
+            
             translator = translators[attempt % len(translators)]
-            
-            # Stagger slightly to avoid rate limits
-            time.sleep(random.uniform(0.1, 0.4)) 
-            
             translated = translator.translate(current_text)
             
-            if translated and not contains_english(translated):
+            # 2. Use a smarter check to avoid unnecessary retries
+            if translated and not contains_too_much_english(translated):
                 return translated
-                
-            # If English is still there, try one more time with the *translated* result
-            current_text = translated if translated else chunk
-            time.sleep(1) 
+            
+            # If still needs translation, use the previous result as next input
+            current_text = translated if (translated and len(translated) > 10) else chunk
             
         except Exception as e:
-            print(f"Translation attempt {attempt + 1} failed: {e}")
-            time.sleep(2 ** attempt) 
+            print(f"Translation attempt {attempt + 1} speed-bump: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt) 
             
-    return current_text # Final best effort
+    return current_text
 
-def translate_text(text, max_workers=10):
-    """Orchestrates concurrent translation of a large block of text."""
-    chunks = split_into_chunks(text, max_chars=1000) # Slightly larger chunks for full-text translation
+def translate_text(text, max_workers=20):
+    """Orchestrates high-speed concurrent translation."""
+    chunks = split_into_chunks(text, max_chars=1000) 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         translated_chunks = list(executor.map(translate_chunk, chunks))
     return " ".join([tc for tc in translated_chunks if tc])
+
 

@@ -35,11 +35,12 @@ def process_chunk(idx, chunk_text, voice_type, temp_dir):
         
     return idx, result_path
 
-def generate_audio_series(script_text, voice_type="Male", bgm_path=None, output_file="final_audio.mp3", max_workers=20, progress_callback=None):
+def generate_audio_series(script_text, voice_type="Male", bgm_path=None, output_file="final_audio.mp3", max_workers=50, progress_callback=None):
     """
     Main orchestration function.
     Splits the script, processes chunks concurrently, and merges the final result.
     """
+
     start_time = time.time()
     
     temp_dir = "temp_audio_chunks"

@@ -50,7 +50,8 @@ assistant = ScriptAssistant(limit=500000) # 500k character limit
 with st.sidebar:
     st.header("⚙️ Studio Settings")
     voice_type = st.selectbox("Narrator Voice Profile", ["Male", "Sweet Female", "Tense Male"])
-    max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=100, value=25)
+    max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=100, value=50)
+
     
     st.markdown("---")
     st.header("🎵 Soundtrack")
