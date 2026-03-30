@@ -4,14 +4,18 @@ import re
 import time
 import random
 
-# Reuse translator instances to save resources
+# Standardize Contextual Blocks for High-Accuracy Translation
+# Translating in larger chunks ensures better Hindi grammar
+TRANSLATION_BLOCK_SIZE = 2000 
+TTS_CHUNK_SIZE = 500
+
+# Reuse translator instances
 GOOGLE = GoogleTranslator(source='en', target='hi')
 MYMEMORY = MyMemoryTranslator(source='en', target='hi')
 
-def split_into_chunks(text, max_chars=400):
+def split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE):
     """
     Split text into chunks of at most max_chars, trying to split on sentence boundaries.
-    Defaulting to 400 for optimal edge-tts and translation performance.
     """
     # Split by common sentence terminators but keep them
     sentences = re.split(r'(?<=[.!?])\s+|\n+', text)
@@ -28,7 +32,6 @@ def split_into_chunks(text, max_chars=400):
             if current_chunk.strip():
                 chunks.append(current_chunk.strip())
             
-            # If the sentence itself is longer than max_chars, split it by length
             if len(sentence) > max_chars:
                 for i in range(0, len(sentence), max_chars):
                     sub = sentence[i:i+max_chars].strip()
@@ -43,19 +46,14 @@ def split_into_chunks(text, max_chars=400):
     return chunks
 
 def contains_too_much_english(text, threshold=0.15):
-    """
-    Returns True if more than threshold% of the text is English characters.
-    Allows for proper nouns, numbers, and technical terms without triggering retries.
-    """
     if not text:
         return False
-    # Count only English alphabet characters
     eng_chars = len(re.findall(r'[a-zA-Z]', text))
     return (eng_chars / len(text)) > threshold
 
 def translate_chunk(chunk, max_retries=3):
     """
-    Translates a single chunk with retry logic, but optimized for speed on success.
+    Translates a single chunk with retry logic, optimized for accuracy.
     """
     if not chunk or not chunk.strip():
         return ""
@@ -65,33 +63,36 @@ def translate_chunk(chunk, max_retries=3):
     
     for attempt in range(max_retries):
         try:
-            # 1. No sleep on the first attempt - maximum speed!
             if attempt > 0:
-                # Stagger only if retrying to avoid further rate limits
                 time.sleep(random.uniform(0.5, 1.5)) 
             
             translator = translators[attempt % len(translators)]
             translated = translator.translate(current_text)
             
-            # 2. Use a smarter check to avoid unnecessary retries
+            # High-accuracy check: prioritize Google result if it's mostly Hindi
             if translated and not contains_too_much_english(translated):
                 return translated
             
-            # If still needs translation, use the previous result as next input
+            # If still needs translation, try again
             current_text = translated if (translated and len(translated) > 10) else chunk
             
         except Exception as e:
-            print(f"Translation attempt {attempt + 1} speed-bump: {e}")
+            print(f"Translation sync error {attempt + 1}: {e}")
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt) 
             
     return current_text
 
 def translate_text(text, max_workers=20):
-    """Orchestrates high-speed concurrent translation."""
-    chunks = split_into_chunks(text, max_chars=1000) 
+    """Orchestrates contextual translation before splitting into TTS chunks."""
+    # Use larger Contextual Blocks for higher translation accuracy
+    context_blocks = split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE) 
+    
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        translated_chunks = list(executor.map(translate_chunk, chunks))
-    return " ".join([tc for tc in translated_chunks if tc])
+        translated_blocks = list(executor.map(translate_chunk, context_blocks))
+    
+    # Return the full translated text to be reconsidered for TTS chunks
+    return " ".join([tb for tb in translated_blocks if tb])
+
 
 
