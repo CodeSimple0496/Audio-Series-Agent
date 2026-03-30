@@ -4,93 +4,136 @@ import time
 from executor import generate_audio_series
 from llm_assistant import ScriptAssistant
 
-st.set_page_config(page_title="Cinematic Audio Series Agent", layout="wide", page_icon="🎙️")
+# Page Config for a premium look
+st.set_page_config(
+    page_title="Cinematic Audio Series Agent", 
+    layout="wide", 
+    page_icon="🎙️",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS for that 'Wow' factor
+st.markdown("""
+    <style>
+    .main {
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        color: white;
+    }
+    .stButton>button {
+        background: linear-gradient(90deg, #ff8c00, #ff0080);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 0 15px rgba(255, 0, 128, 0.4);
+    }
+    .metric-card {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        border-radius: 15px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 st.title("🎙️ Cinematic Audio Series Agent")
-st.markdown("Convert massive web novel chapters into high-quality, multi-voice Hindi audio series in minutes. **Powered by AI & Concurrency.**")
+st.markdown("Convert massive web novel chapters into high-quality, multi-voice Hindi audio series in seconds. **Powered by AI & Parallel Processing.**")
 
-assistant = ScriptAssistant(limit=500000) # 500k character limit per session
+assistant = ScriptAssistant(limit=500000) # 500k character limit
 
 with st.sidebar:
-    st.header("⚙️ Configuration")
-    voice_type = st.selectbox("Select Default Voice Profile", ["Male", "Sweet Female", "Tense Male"])
+    st.header("⚙️ Studio Settings")
+    voice_type = st.selectbox("Narrator Voice Profile", ["Male", "Sweet Female", "Tense Male"])
     max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=100, value=25)
     
     st.markdown("---")
-    st.header("🎵 Background Music")
-    bgm_file = st.file_uploader("Upload BGM (mp3)", type=["mp3"])
+    st.header("🎵 Soundtrack")
+    bgm_file = st.file_uploader("Upload Background Score (mp3)", type=["mp3"])
     if bgm_file:
-        with open("temp_bgm.mp3", "wb") as f:
-            f.write(bgm_file.read())
         bgm_path = "temp_bgm.mp3"
+        with open(bgm_path, "wb") as f:
+            f.write(bgm_file.read())
     else:
         bgm_path = None
 
 def process_and_generate(text_content):
     if not text_content.strip():
-        st.error("No content to process.")
+        st.error("Please provide some text to process.")
         return
         
-    # Session Management: Check Character Limit
     is_valid, msg = assistant.check_length(text_content)
     if not is_valid:
         st.error(f"🛑 {msg}")
         return
         
-    st.info(f"Processing ~{len(text_content)} characters...")
+    st.info(f"Preparing to process {len(text_content):,} characters...")
     
-    # AI Script Assistant: Extract names and suggest mapping
-    st.markdown("### 🤖 AI Script Analysis")
-    with st.expander("Show AI Extracted Characters (Heuristic Mapping)"):
+    # AI Script Assistant
+    with st.expander("🤖 View AI Character Analysis"):
         mapping = assistant.suggest_voice_mapping(text_content)
         if mapping:
+            st.write("Suggested multi-voice mapping (Experimental):")
             st.json(mapping)
         else:
-            st.write("No specific dialogue signatures detected.")
+            st.write("No specific character signatures detected.")
     
-    progress = st.progress(0)
+    progress_bar = st.progress(0)
     status_text = st.empty()
-    
-    status_text.text("Dividing and Conquering (Translating & TTS in Parallel)...")
     
     start_time = time.time()
     output_file = "output_series.mp3"
     
     def ui_progress_callback(percent, message):
-        progress.progress(percent)
-        status_text.text(message)
+        progress_bar.progress(percent)
+        status_text.markdown(f"**Status:** {message}")
     
     # Execute Parallel Pipeline
-    result = generate_audio_series(
-        script_text=text_content, 
-        voice_type=voice_type, 
-        bgm_path=bgm_path, 
-        output_file=output_file, 
-        max_workers=max_workers,
-        progress_callback=ui_progress_callback
-    )
+    try:
+        result = generate_audio_series(
+            script_text=text_content, 
+            voice_type=voice_type, 
+            bgm_path=bgm_path, 
+            output_file=output_file, 
+            max_workers=max_workers,
+            progress_callback=ui_progress_callback
+        )
+    except Exception as e:
+        st.error(f"Generation Engine Error: {e}")
+        return
     
-    progress.progress(100)
-    end_time = time.time()
-    
-    if result:
-        time_taken = end_time - start_time
-        status_text.success(f"Generation Complete! 🎉")
+    if result and os.path.exists(output_file):
+        time_taken = time.time() - start_time
+        status_text.success(f"Production Complete! 🎉")
         st.balloons()
         
-        # Display Performance Metrics
-        st.markdown("### ⚡ Performance Metrics")
-        col1, col2 = st.columns(2)
-        col1.metric("Total Execution Time", f"{time_taken:.2f} s")
-        col2.metric("Characters Processed", f"{len(text_content):,}")
+        # Display Performance Metrics in a cleaner way
+        st.markdown("### ⚡ Production Metrics")
+        m_col1, m_col2, m_col3 = st.columns(3)
+        m_col1.metric("Execution Time", f"{time_taken:.2f} s")
+        m_col2.metric("Characters", f"{len(text_content):,}")
+        m_col3.metric("Throughput", f"{int(len(text_content)/time_taken)} chars/s")
         
-        if os.path.exists(output_file):
-            st.audio(output_file)
-            with open(output_file, "rb") as file:
-                st.download_button("Download Full Episode", data=file, file_name="episode.mp3", mime="audio/mp3")
+        st.audio(output_file)
+        with open(output_file, "rb") as file:
+            st.download_button(
+                label="📥 Download Full Episode", 
+                data=file, 
+                file_name="cinematic_episode.mp3", 
+                mime="audio/mp3",
+                use_container_width=True
+            )
     else:
-        status_text.error("Audio generation failed. Check logs for details.")
+        status_text.error("Production failed. Please check the text content and try again.")
 
-raw_text = st.text_area("Paste English Script Here", height=300)
-if st.button("Generate from Text", use_container_width=True):
+st.markdown("### 📜 Script Input")
+raw_text = st.text_area("Paste your English story or script here...", height=400, placeholder="Once upon a time in a far away land...")
+
+if st.button("🚀 Start Production", use_container_width=True):
     process_and_generate(raw_text)
+
