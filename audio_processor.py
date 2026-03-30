@@ -1,19 +1,26 @@
 from pydub import AudioSegment
 import os
+import sys
 
-# Set explicit paths for ffmpeg and ffprobe from the current directory
-# This assumes they are provided as binaries in the project root for portability
-AudioSegment.converter = os.path.abspath("ffmpeg.exe")
-AudioSegment.ffprobe = os.path.abspath("ffprobe.exe")
+# --- SMART CROSS-PLATFORM FFMPEG AUTO-DETECTION ---
+# If on Windows, use the provided local .exe.
+# If on Streamlit Cloud (Linux), use the system's global ffmpeg (from packages.txt).
+if os.name == 'nt':
+    AudioSegment.converter = os.path.abspath("ffmpeg.exe")
+    AudioSegment.ffprobe = os.path.abspath("ffprobe.exe")
+else:
+    # Linux/Mac handles paths automatically via the PATH environment variable
+    AudioSegment.converter = "ffmpeg"
+    AudioSegment.ffprobe = "ffprobe"
 
 def merge_audio_files(chunk_paths, output_file, bgm_path=None):
     """
     Concatenate a list of temporary audio chunks into a single audio track.
     Returns: (bool: success, str: message)
     """
-    # 1. Binary validation
-    if not os.path.exists(AudioSegment.converter):
-        return False, f"ffmpeg.exe not found at {AudioSegment.converter}. Audio merging cannot proceed."
+    # 1. Platform-Specific Binary Validation
+    if os.name == 'nt' and not os.path.exists(AudioSegment.converter):
+        return False, f"ffmpeg.exe not found at {AudioSegment.converter}. Download it to the project root for local runs."
         
     if not chunk_paths:
         return False, "No audio chunks were generated to merge. This could be due to a TTS failure."
