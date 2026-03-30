@@ -79,7 +79,8 @@ def translate_chunk(chunk, max_retries=3):
     return current_text
 
 
-def translate_text(text, max_workers=20):
+def translate_text(text, max_workers=25):
+
     """Orchestrates contextual translation before splitting into TTS chunks."""
     # Use larger Contextual Blocks for higher translation accuracy
     context_blocks = split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE) 

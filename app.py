@@ -50,7 +50,8 @@ assistant = ScriptAssistant(limit=500000) # 500k character limit
 with st.sidebar:
     st.header("⚙️ Studio Settings")
     voice_type = st.selectbox("Narrator Voice Profile", ["Male", "Sweet Female", "Tense Male"])
-    max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=100, value=50)
+    max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=100, value=25)
+
 
     
     st.markdown("---")
@@ -95,33 +96,31 @@ def process_and_generate(text_content):
         status_text.markdown(f"**Status:** {message}")
     
     # Execute Parallel Pipeline
-    try:
-        result = generate_audio_series(
-            script_text=text_content, 
-            voice_type=voice_type, 
-            bgm_path=bgm_path, 
-            output_file=output_file, 
-            max_workers=max_workers,
-            progress_callback=ui_progress_callback
-        )
-    except Exception as e:
-        st.error(f"Generation Engine Error: {e}")
-        return
+    output_path, error_msg = generate_audio_series(
+        script_text=text_content, 
+        voice_type=voice_type, 
+        bgm_path=bgm_path, 
+        output_file=output_file, 
+        max_workers=max_workers,
+        progress_callback=ui_progress_callback
+    )
     
-    if result and os.path.exists(output_file):
+    if output_path and os.path.exists(output_path):
         time_taken = time.time() - start_time
         status_text.success(f"Production Complete! 🎉")
         st.balloons()
         
-        # Display Performance Metrics in a cleaner way
+        # Display Performance Metrics
         st.markdown("### ⚡ Production Metrics")
         m_col1, m_col2, m_col3 = st.columns(3)
-        m_col1.metric("Execution Time", f"{time_taken:.2f} s")
+        m_col1.metric("Execution Time", f"{time_taken:.1f}s")
         m_col2.metric("Characters", f"{len(text_content):,}")
         m_col3.metric("Throughput", f"{int(len(text_content)/time_taken)} chars/s")
         
-        st.audio(output_file)
-        with open(output_file, "rb") as file:
+        st.sidebar.metric("Active Workers", f"{max_workers}")
+        
+        st.audio(output_path)
+        with open(output_path, "rb") as file:
             st.download_button(
                 label="📥 Download Full Episode", 
                 data=file, 
@@ -130,10 +129,12 @@ def process_and_generate(text_content):
                 use_container_width=True
             )
     else:
-        status_text.error("Production failed. Please check the text content and try again.")
+        status_text.error(f"❌ Production Failed: {error_msg}")
+        st.info("💡 Tip: Ensure your script is in English and your internet connection is stable.")
 
 st.markdown("### 📜 Script Input")
 raw_text = st.text_area("Paste your English story or script here...", height=400, placeholder="Once upon a time in a far away land...")
+
 
 if st.button("🚀 Start Production", use_container_width=True):
     process_and_generate(raw_text)

@@ -9,69 +9,57 @@ AudioSegment.ffprobe = os.path.abspath("ffprobe.exe")
 def merge_audio_files(chunk_paths, output_file, bgm_path=None):
     """
     Concatenate a list of temporary audio chunks into a single audio track.
-    Adds a short silence (e.g. 500ms) between paragraphs.
-    Optionally overlays background music with volume normalization.
+    Returns: (bool: success, str: message)
     """
+    # 1. Binary validation
+    if not os.path.exists(AudioSegment.converter):
+        return False, f"ffmpeg.exe not found at {AudioSegment.converter}. Audio merging cannot proceed."
+        
     if not chunk_paths:
-        print("No audio files provided to merge.")
-        return False
+        return False, "No audio chunks were generated to merge. This could be due to a TTS failure."
 
-    combined = AudioSegment.empty()
-    silence = AudioSegment.silent(duration=500) # 500ms between chunks
-
-    print(f"Merging {len(chunk_paths)} chunks...")
-    for path in chunk_paths:
-        if path and os.path.exists(path):
-            try:
-                # Load with extra care
-                segment = AudioSegment.from_file(path)
-                # Normalize voice volume for consistency
-                segment = segment.normalize()
-                combined += segment + silence
-            except Exception as e:
-                print(f"Error loading {path}: {e}")
-        else:
-            print(f"Missing chunk: {path}")
-
-    # Process Background Music if available
-    if bgm_path and os.path.exists(bgm_path):
-        print(f"Adding Background Music: {bgm_path}")
-        try:
-            bgm = AudioSegment.from_file(bgm_path)
-            
-            # Memory-efficient looping: only loop if it's shorter than the combined audio
-            if len(bgm) < len(combined):
-                loops_needed = (len(combined) // len(bgm)) + 1
-                bgm = bgm * loops_needed
-            
-            bgm = bgm[:len(combined)] # Trim to exact length
-
-            # Lower the volume of BGM so it doesn't overpower voice
-            # -20 dB is typically a good sweet spot for narration
-            bgm = bgm - 20 
-
-            # Overlay with slight fade-in/out for smooth transition
-            combined = combined.overlay(bgm.fade_in(2000).fade_out(2000))
-        except Exception as e:
-            print(f"Error mixing BGM layer: {e}")
-
-    # Export final
     try:
-        print(f"Exporting final audio to {output_file}...")
-        # Use tags for basic SEO/Metadata
+        combined = AudioSegment.empty()
+        silence = AudioSegment.silent(duration=500) # 500ms between chunks
+
+        print(f"Merging {len(chunk_paths)} chunks...")
+        for i, path in enumerate(chunk_paths):
+            if path and os.path.exists(path):
+                try:
+                    segment = AudioSegment.from_file(path)
+                    segment = segment.normalize()
+                    combined += segment + silence
+                except Exception as e:
+                    print(f"Skipping corrupted chunk {path}: {e}")
+            else:
+                print(f"Chunk missing: {path}")
+
+        if len(combined) == 0:
+            return False, "Total combined audio duration is zero. Please check the voice generation logs."
+
+        # Process BGM
+        if bgm_path and os.path.exists(bgm_path):
+            try:
+                bgm = AudioSegment.from_file(bgm_path)
+                if len(bgm) < len(combined):
+                    loops_needed = (len(combined) // len(bgm)) + 1
+                    bgm = bgm * loops_needed
+                bgm = bgm[:len(combined)] - 20 
+                combined = combined.overlay(bgm.fade_in(2000).fade_out(2000))
+            except Exception as e:
+                print(f"BGM mixing failed (skipping): {e}")
+
+        # Final Export
+        print(f"Exporting to {output_file}...")
         combined.export(output_file, format="mp3", bitrate="192k", tags={"artist": "Audio Series Agent", "album": "Cinematic Series"})
         print("Merge Complete!")
-    except Exception as e:
-        print(f"Export failed: {e}")
-        return False
-    
-    # Clean up temp chunks only after successful export
-    for path in chunk_paths:
-        if path and os.path.exists(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+        
+        # Cleanup
+        for path in chunk_paths:
+            if path and os.path.exists(path):
+                try: os.remove(path)
+                except OSError: pass
                 
-    return True
-
+        return True, "Merged successfully."
+    except Exception as e:
+        return False, f"Export failed: {str(e)}"
