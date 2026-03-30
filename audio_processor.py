@@ -2,25 +2,39 @@ from pydub import AudioSegment
 import os
 import sys
 
-# --- SMART CROSS-PLATFORM FFMPEG AUTO-DETECTION ---
-# If on Windows, use the provided local .exe.
-# If on Streamlit Cloud (Linux), use the system's global ffmpeg (from packages.txt).
-if os.name == 'nt':
-    AudioSegment.converter = os.path.abspath("ffmpeg.exe")
-    AudioSegment.ffprobe = os.path.abspath("ffprobe.exe")
-else:
-    # Linux/Mac handles paths automatically via the PATH environment variable
-    AudioSegment.converter = "ffmpeg"
-    AudioSegment.ffprobe = "ffprobe"
+import sys
+import shutil
+
+# --- ULTRA-STABLE AUTO-DISCOVERY ENGINE ---
+# This engine automatically finds FFmpeg in any environment (Local Windows or Cloud Linux)
+def setup_audio_engine():
+    # 1. Check if FFmpeg is in the system PATH (Standard for Cloud/Linux)
+    if shutil.which("ffmpeg"):
+        AudioSegment.converter = "ffmpeg"
+        AudioSegment.ffprobe = "ffprobe"
+        return "System PATH"
+        
+    # 2. Check for local binaries (Standard for Portable Windows builds)
+    if os.path.exists("ffmpeg.exe"):
+        AudioSegment.converter = os.path.abspath("ffmpeg.exe")
+        AudioSegment.ffprobe = os.path.abspath("ffprobe.exe")
+        return "Local EXE"
+        
+    # 3. Last resort fallback
+    return "Not Found"
+
+ENGINE_STATUS = setup_audio_engine()
+
 
 def merge_audio_files(chunk_paths, output_file, bgm_path=None):
     """
     Concatenate a list of temporary audio chunks into a single audio track.
     Returns: (bool: success, str: message)
     """
-    # 1. Platform-Specific Binary Validation
-    if os.name == 'nt' and not os.path.exists(AudioSegment.converter):
-        return False, f"ffmpeg.exe not found at {AudioSegment.converter}. Download it to the project root for local runs."
+    # 1. Intelligent Binary Validation
+    if ENGINE_STATUS == "Not Found":
+        return False, "FFmpeg engine not found. Locally, make sure ffmpeg.exe is in the root. On Cloud, ensure 'ffmpeg' is in packages.txt."
+
         
     if not chunk_paths:
         return False, "No audio chunks were generated to merge. This could be due to a TTS failure."
