@@ -1,6 +1,10 @@
 from pydub import AudioSegment
 import os
 
+# Set explicit paths for ffmpeg and ffprobe from the current directory
+AudioSegment.converter = os.path.abspath("ffmpeg.exe")
+AudioSegment.ffprobe = os.path.abspath("ffprobe.exe")
+
 def merge_audio_files(chunk_paths, output_file, bgm_path=None):
     """
     Concatenate a list of temporary audio chunks into a single audio track.
