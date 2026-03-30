@@ -9,12 +9,19 @@ def process_chunk(idx, chunk_text, voice_type, temp_dir):
     """
     Worker function to translate and generate audio for a single text chunk.
     """
+    if not chunk_text or not chunk_text.strip():
+        print(f"[{idx}] Skipping empty chunk.")
+        return idx, None
+        
     start = time.time()
     
     # 1. Translate
     try:
         translator = GoogleTranslator(source='en', target='hi')
         hi_text = translator.translate(chunk_text)
+        if not hi_text:
+            print(f"[{idx}] Translation returned empty. Using fallback.")
+            hi_text = chunk_text
     except Exception as e:
         print(f"[{idx}] Translation failed: {e}")
         hi_text = chunk_text # fallback
@@ -23,8 +30,13 @@ def process_chunk(idx, chunk_text, voice_type, temp_dir):
     out_path = os.path.join(temp_dir, f"chunk_{idx:04d}.mp3")
     result_path = generate_audio(hi_text, voice_type, out_path)
     
-    print(f"[{time.time()-start:.2f}s] Processed chunk {idx}")
+    if result_path:
+        print(f"[{time.time()-start:.2f}s] Processed chunk {idx}")
+    else:
+        print(f"[{time.time()-start:.2f}s] Failed to generate audio for chunk {idx}")
+        
     return idx, result_path
+
 
 def generate_audio_series(script_text, voice_type="Male", bgm_path=None, output_file="final_audio.mp3", max_workers=20, progress_callback=None):
     """
