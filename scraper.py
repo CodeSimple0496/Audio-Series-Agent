@@ -8,12 +8,12 @@ from utils import Timer
 async def fetch_html(session, url, semaphore):
     async with semaphore:
         try:
-        async with session.get(url, timeout=15) as response:
-            response.raise_for_status()
-            return await response.text()
-    except Exception as e:
-        print(f"Failed to fetch {url}: {e}")
-        return None
+            async with session.get(url, timeout=15) as response:
+                response.raise_for_status()
+                return await response.text()
+        except Exception as e:
+            print(f"Failed to fetch {url}: {e}")
+            return None
 
 def extract_content(html):
     if not html:
