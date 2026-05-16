@@ -92,13 +92,14 @@ def translate_chunk(chunk, max_retries=3):
     return chunk
 
 
-def translate_text(text, max_workers=40):
+def translate_text(text, max_workers=None):
     """Orchestrates contextual translation before splitting into TTS chunks."""
     # Use larger Contextual Blocks for higher translation accuracy
     context_blocks = split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE) 
-    
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        translated_blocks = list(executor.map(translate_chunk, context_blocks))
+    max_workers = max_workers or config.MAX_WORKERS_TRANSLATE
+    with Timer("Translation", logger=print if config.VERBOSE else None):
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            translated_blocks = list(executor.map(translate_chunk, context_blocks))
     
     # Return the full translated text to be reconsidered for TTS chunks
     return " ".join([tb for tb in translated_blocks if tb])

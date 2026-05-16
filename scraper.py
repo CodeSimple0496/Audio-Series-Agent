@@ -2,9 +2,12 @@ import aiohttp
 import asyncio
 from bs4 import BeautifulSoup
 import re
+import config
+from utils import Timer
 
-async def fetch_html(session, url):
-    try:
+async def fetch_html(session, url, semaphore):
+    async with semaphore:
+        try:
         async with session.get(url, timeout=15) as response:
             response.raise_for_status()
             return await response.text()
@@ -28,14 +31,17 @@ def extract_content(html):
     return text
 
 async def scrape_urls(urls):
-    async with aiohttp.ClientSession() as session:
-        tasks = [fetch_html(session, url) for url in urls]
-        htmls = await asyncio.gather(*tasks)
-        
+    semaphore = asyncio.Semaphore(config.MAX_WORKERS_SCRAPER)
+    with Timer(f"Scraping {len(urls)} URLs", logger=print if config.VERBOSE else None):
+        async with aiohttp.ClientSession() as session:
+            tasks = [fetch_html(session, url, semaphore) for url in urls]
+            htmls = await asyncio.gather(*tasks)
+            
     results = []
-    for url, html in zip(urls, htmls):
-        content = extract_content(html)
-        results.append(content)
+    with Timer("Extracting content", logger=print if config.VERBOSE else None):
+        for url, html in zip(urls, htmls):
+            content = extract_content(html)
+            results.append(content)
     return results
 
 def run_scraper(urls):

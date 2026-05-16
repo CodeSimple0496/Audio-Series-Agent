@@ -4,6 +4,9 @@ import sys
 
 # Duplicate sys import removed
 import shutil
+from concurrent.futures import ThreadPoolExecutor
+import config
+from utils import Timer
 from pydub.effects import compress_dynamic_range
 from pydub.silence import detect_silence
 
@@ -59,6 +62,18 @@ def process_chunk(segment: AudioSegment) -> AudioSegment:
     return segment
 
 
+def load_and_process_chunk(path):
+    """Helper to load and process a single audio chunk."""
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        raw_segment = AudioSegment.from_file(path)
+        return process_chunk(raw_segment)
+    except Exception as e:
+        print(f"Skipping corrupted chunk {path}: {e}")
+        return None
+
+
 def merge_audio_files(chunk_paths, output_file, bgm_path=None, bitrate="256k", export_format="mp3"):
     """
     Concatenate a list of temporary audio chunks into a single audio track.
@@ -83,21 +98,23 @@ def merge_audio_files(chunk_paths, output_file, bgm_path=None, bitrate="256k", e
         combined = AudioSegment.empty()
         print(f"Merging {len(chunk_paths)} chunks with smooth crossfades...")
         previous_segment = None
-        for i, path in enumerate(chunk_paths):
-            if path and os.path.exists(path):
-                try:
-                    # Load and preprocess each chunk
-                    raw_segment = AudioSegment.from_file(path)
-                    processed = process_chunk(raw_segment)
-                    if previous_segment is None:
-                        combined = processed
-                    else:
-                        combined = combined.append(processed, crossfade=100)
-                    previous_segment = processed
-                except Exception as e:
-                    print(f"Skipping corrupted chunk {path}: {e}")
-            else:
-                print(f"Chunk missing: {path}")
+        
+        # Preprocess chunks concurrently
+        with Timer("Audio Chunk Preprocessing", logger=print if config.VERBOSE else None):
+            with ThreadPoolExecutor(max_workers=config.MAX_WORKERS_TTS) as executor:
+                processed_segments = list(executor.map(load_and_process_chunk, chunk_paths))
+                
+        # Sequentially concatenate to maintain order and apply crossfades
+        with Timer("Audio Chunk Concatenation", logger=print if config.VERBOSE else None):
+            for i, processed in enumerate(processed_segments):
+                if processed is None:
+                    print(f"Chunk missing or corrupted: {chunk_paths[i]}")
+                    continue
+                if previous_segment is None:
+                    combined = processed
+                else:
+                    combined = combined.append(processed, crossfade=100)
+                previous_segment = processed
 
         if len(combined) == 0:
             return False, "Total combined audio duration is zero. Please check the voice generation logs."
