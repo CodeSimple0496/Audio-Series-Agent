@@ -104,8 +104,17 @@ def process_and_generate(text_content):
     output_file = f"output_series_{uuid.uuid4().hex[:8]}.mp3"
     
     def ui_progress_callback(percent, message):
+        elapsed = time.time() - start_time
+        eta_str = ""
+        if 5 < percent < 100:
+            total_est = elapsed / (percent / 100.0)
+            remaining = max(0, total_est - elapsed)
+            mins = int(remaining // 60)
+            secs = int(remaining % 60)
+            eta_str = f" | ⏳ ETA: {mins}m {secs}s"
+            
         progress_bar.progress(percent)
-        status_text.markdown(f"**Status:** {message}")
+        status_text.markdown(f"**Status:** {message}{eta_str}")
     
     # Execute Parallel Pipeline
     output_path, error_msg = generate_audio_series(
