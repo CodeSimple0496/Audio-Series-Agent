@@ -99,19 +99,30 @@ def merge_audio_files(chunk_paths, output_file, bgm_path=None, bitrate="256k", e
         print(f"Merging {len(chunk_paths)} chunks with smooth crossfades...")
         previous_segment = None
         
-        # Sequentially load, process, and concatenate to prevent RAM exhaustion and GIL locking
-        with Timer("Audio Chunk Processing & Concatenation", logger=print if getattr(config, "VERBOSE", False) else None):
-            for i, path in enumerate(chunk_paths):
-                processed = load_and_process_chunk(path)
-                if processed is None:
-                    print(f"Chunk missing or corrupted: {path}")
-                    continue
-                
-                if previous_segment is None:
-                    combined = processed
-                else:
-                    combined = combined.append(processed, crossfade=100)
-                previous_segment = processed
+        # --- OPTIMIZATION: Safe Parallel Preprocessing ---
+        # Limit max workers to 20 to prevent RAM exhaustion while maximizing CPU usage
+        safe_workers = min(20, getattr(config, "MAX_WORKERS_TTS", 20))
+        with Timer("Audio Chunk Preprocessing", logger=print if getattr(config, "VERBOSE", False) else None):
+            with ThreadPoolExecutor(max_workers=safe_workers) as executor:
+                processed_segments = list(executor.map(load_and_process_chunk, chunk_paths))
+        
+        # Filter out corrupted chunks
+        valid_segments = [s for s in processed_segments if s is not None]
+
+        # --- OPTIMIZATION: O(N log N) Fast Tree Merge ---
+        # Linearly appending chunks in Pydub is O(N^2). Tree merging is exponentially faster.
+        with Timer("Fast Tree Merging", logger=print if getattr(config, "VERBOSE", False) else None):
+            segments = valid_segments
+            while len(segments) > 1:
+                next_level = []
+                for i in range(0, len(segments), 2):
+                    if i + 1 < len(segments):
+                        next_level.append(segments[i].append(segments[i+1], crossfade=100))
+                    else:
+                        next_level.append(segments[i])
+                segments = next_level
+            
+            combined = segments[0] if segments else AudioSegment.empty()
 
         if len(combined) == 0:
             return False, "Total combined audio duration is zero. Please check the voice generation logs."
