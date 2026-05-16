@@ -4,6 +4,14 @@ import re
 import time
 import random
 
+# Project configuration and utilities
+import config
+import utils
+from utils import LRUCache, Timer, hash_text
+
+# In‑memory LRU cache for translated chunks
+_translation_cache = LRUCache(capacity=256)
+
 # Standardize Contextual Blocks for High-Accuracy Translation
 # Translating in larger chunks ensures better Hindi grammar
 TRANSLATION_BLOCK_SIZE = 1000 
@@ -55,9 +63,16 @@ def translate_chunk(chunk, max_retries=3):
     if not chunk or not chunk.strip():
         return ""
     
+    # Check in‑memory cache first
+    cache_key = utils.hash_text(chunk)
+    cached = _translation_cache.get(cache_key)
+    if cached:
+        if config.VERBOSE:
+            print(f"Cache hit for chunk (hash={cache_key})")
+        return cached
+
     # Initialize a new translator instance per thread to prevent race conditions
-    translator = GoogleTranslator(source='en', target='hi')
-    
+    translator = GoogleTranslator(source='en', target='hi')    
     for attempt in range(max_retries):
         try:
             if attempt > 0:
