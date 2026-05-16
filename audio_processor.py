@@ -99,17 +99,14 @@ def merge_audio_files(chunk_paths, output_file, bgm_path=None, bitrate="256k", e
         print(f"Merging {len(chunk_paths)} chunks with smooth crossfades...")
         previous_segment = None
         
-        # Preprocess chunks concurrently
-        with Timer("Audio Chunk Preprocessing", logger=print if config.VERBOSE else None):
-            with ThreadPoolExecutor(max_workers=config.MAX_WORKERS_TTS) as executor:
-                processed_segments = list(executor.map(load_and_process_chunk, chunk_paths))
-                
-        # Sequentially concatenate to maintain order and apply crossfades
-        with Timer("Audio Chunk Concatenation", logger=print if config.VERBOSE else None):
-            for i, processed in enumerate(processed_segments):
+        # Sequentially load, process, and concatenate to prevent RAM exhaustion and GIL locking
+        with Timer("Audio Chunk Processing & Concatenation", logger=print if getattr(config, "VERBOSE", False) else None):
+            for i, path in enumerate(chunk_paths):
+                processed = load_and_process_chunk(path)
                 if processed is None:
-                    print(f"Chunk missing or corrupted: {chunk_paths[i]}")
+                    print(f"Chunk missing or corrupted: {path}")
                     continue
+                
                 if previous_segment is None:
                     combined = processed
                 else:

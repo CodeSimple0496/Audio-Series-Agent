@@ -81,6 +81,7 @@ def translate_chunk(chunk, max_retries=3):
             translated = translator.translate(chunk)
             
             if translated and not contains_too_much_english(translated):
+                _translation_cache.put(cache_key, translated)
                 return translated
             
         except Exception as e:

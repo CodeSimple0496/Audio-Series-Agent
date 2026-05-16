@@ -39,6 +39,7 @@ def generate_audio_series(script_text, voice_type="Male", engine="Edge-TTS (Free
             executor.submit(translate_chunk, block): i 
             for i, block in enumerate(context_blocks)
         }
+        completed_count = 0
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:
@@ -47,9 +48,10 @@ def generate_audio_series(script_text, voice_type="Male", engine="Edge-TTS (Free
                 print(f"Block {idx} translation failed: {e}")
                 translated_script_parts[idx] = context_blocks[idx] 
             
+            completed_count += 1
             if progress_callback:
-                percent = 10 + int(((idx + 1) / total_blocks) * 40)
-                progress_callback(percent, f"Contextual Translation: {idx+1}/{total_blocks} done...")
+                percent = 10 + int((completed_count / total_blocks) * 40)
+                progress_callback(percent, f"Contextual Translation: {completed_count}/{total_blocks} done...")
 
     full_hindi_script = " ".join([p for p in translated_script_parts if p])
     if not full_hindi_script.strip():

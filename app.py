@@ -61,7 +61,7 @@ with st.sidebar:
     else:
         voice_type = st.selectbox("Narrator Voice Profile", ["Male", "Sweet Female", "Tense Male", "Relaxed Male", "Relaxed Female"])
         
-    max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=100, value=25)
+    max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=1000, value=1000)
 
 
     
