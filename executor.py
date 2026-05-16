@@ -6,7 +6,7 @@ from translator import split_into_chunks, translate_chunk, TRANSLATION_BLOCK_SIZ
 from tts_engine import generate_audio
 from audio_processor import merge_audio_files
 
-def generate_audio_series(script_text, voice_type="Male", bgm_path=None, output_file="final_audio.mp3", max_workers=25, progress_callback=None):
+def generate_audio_series(script_text, voice_type="Male", engine="Edge-TTS (Free)", api_key="", bgm_path=None, output_file="final_audio.mp3", max_workers=25, progress_callback=None):
 
     """
     Two-Stage Orchestration for High Accuracy.
@@ -69,7 +69,7 @@ def generate_audio_series(script_text, voice_type="Male", bgm_path=None, output_
     audio_files_map = {}
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(generate_audio, chunk, voice_type, os.path.join(temp_dir, f"chunk_{i:04d}.mp3")): i 
+            executor.submit(generate_audio, chunk, voice_type, engine, api_key, os.path.join(temp_dir, f"chunk_{i:04d}.mp3")): i 
             for i, chunk in enumerate(tts_chunks)
         }
         

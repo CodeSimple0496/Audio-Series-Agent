@@ -49,7 +49,18 @@ assistant = ScriptAssistant(limit=500000) # 500k character limit
 
 with st.sidebar:
     st.header("⚙️ Studio Settings")
-    voice_type = st.selectbox("Narrator Voice Profile", ["Male", "Sweet Female", "Tense Male"])
+    tts_engine = st.selectbox("TTS Engine", ["Edge-TTS (Free)", "ElevenLabs (Premium)", "OpenAI (Premium)"])
+    
+    api_key = ""
+    if tts_engine == "ElevenLabs (Premium)":
+        api_key = st.text_input("ElevenLabs API Key", type="password")
+        voice_type = st.selectbox("Narrator Voice Profile", ["Adam (Deep Male)", "Rachel (Soft Female)", "Antony (Expressive)", "Bella (Bright Female)"])
+    elif tts_engine == "OpenAI (Premium)":
+        api_key = st.text_input("OpenAI API Key", type="password")
+        voice_type = st.selectbox("Narrator Voice Profile", ["Alloy (Neutral)", "Echo (Warm Male)", "Onyx (Deep Male)", "Nova (Bright Female)"])
+    else:
+        voice_type = st.selectbox("Narrator Voice Profile", ["Male", "Sweet Female", "Tense Male", "Relaxed Male", "Relaxed Female"])
+        
     max_workers = st.slider("Concurrency (Parallel Workers)", min_value=1, max_value=100, value=25)
 
 
@@ -99,6 +110,8 @@ def process_and_generate(text_content):
     output_path, error_msg = generate_audio_series(
         script_text=text_content, 
         voice_type=voice_type, 
+        engine=tts_engine,
+        api_key=api_key,
         bgm_path=bgm_path, 
         output_file=output_file, 
         max_workers=max_workers,
