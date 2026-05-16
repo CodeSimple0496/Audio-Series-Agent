@@ -3,10 +3,10 @@
 # Run it from the repository root (d:\AUDIO SERIES AGENT).
 
 # Stage changed files and new files
-git add translator.py audio_processor.py scraper.py config.py utils.py app.py
+git add .
 
 # Commit with a descriptive message
-git commit -m "Add ETA timestamp display to Streamlit UI and missing config modules"
+git commit -m "Optimize audio merging to O(N log N) tree merge, limit audio workers for stability, fix translation cache, fix UI progress bar, and set optimal worker count to 20"
 
 # Push to the remote repository
 git push origin HEAD
