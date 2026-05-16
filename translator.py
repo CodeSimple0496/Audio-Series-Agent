@@ -1,4 +1,4 @@
-from deep_translator import GoogleTranslator, MyMemoryTranslator
+from deep_translator import GoogleTranslator
 from concurrent.futures import ThreadPoolExecutor
 import re
 import time
@@ -8,10 +8,6 @@ import random
 # Translating in larger chunks ensures better Hindi grammar
 TRANSLATION_BLOCK_SIZE = 2000 
 TTS_CHUNK_SIZE = 500
-
-# Reuse Google translator for high-accuracy Hindi conversion
-GOOGLE = GoogleTranslator(source='en', target='hi')
-
 
 def split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE):
     """
@@ -54,33 +50,34 @@ def contains_too_much_english(text, threshold=0.15):
 def translate_chunk(chunk, max_retries=3):
     """
     Translates a single block using Google Translate with high-accuracy contextual logic.
+    Thread-safe implementation.
     """
     if not chunk or not chunk.strip():
         return ""
     
-    current_text = chunk
+    # Initialize a new translator instance per thread to prevent race conditions
+    translator = GoogleTranslator(source='en', target='hi')
+    
     for attempt in range(max_retries):
         try:
             if attempt > 0:
                 time.sleep(random.uniform(1.0, 2.0)) 
             
-            translated = GOOGLE.translate(current_text)
+            translated = translator.translate(chunk)
             
             if translated and not contains_too_much_english(translated):
                 return translated
-            
-            current_text = translated if (translated and len(translated) > 10) else chunk
             
         except Exception as e:
             print(f"Translation sync error {attempt + 1}: {e}")
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt) 
             
-    return current_text
+    # If all attempts fail, return the original English chunk rather than looping or caching
+    return chunk
 
 
 def translate_text(text, max_workers=25):
-
     """Orchestrates contextual translation before splitting into TTS chunks."""
     # Use larger Contextual Blocks for higher translation accuracy
     context_blocks = split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE) 
@@ -90,6 +87,5 @@ def translate_text(text, max_workers=25):
     
     # Return the full translated text to be reconsidered for TTS chunks
     return " ".join([tb for tb in translated_blocks if tb])
-
 
 
