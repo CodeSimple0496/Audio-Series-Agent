@@ -100,7 +100,8 @@ def process_and_generate(text_content):
     status_text = st.empty()
     
     start_time = time.time()
-    output_file = "output_series.mp3"
+    import uuid
+    output_file = f"output_series_{uuid.uuid4().hex[:8]}.mp3"
     
     def ui_progress_callback(percent, message):
         progress_bar.progress(percent)

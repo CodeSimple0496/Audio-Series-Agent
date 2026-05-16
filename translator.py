@@ -6,15 +6,15 @@ import random
 
 # Standardize Contextual Blocks for High-Accuracy Translation
 # Translating in larger chunks ensures better Hindi grammar
-TRANSLATION_BLOCK_SIZE = 2000 
+TRANSLATION_BLOCK_SIZE = 1000 
 TTS_CHUNK_SIZE = 500
 
 def split_into_chunks(text, max_chars=TRANSLATION_BLOCK_SIZE):
     """
     Split text into chunks of at most max_chars, trying to split on sentence boundaries.
     """
-    # Split by common sentence terminators but keep them
-    sentences = re.split(r'(?<=[.!?])\s+|\n+', text)
+    # Split by common sentence terminators (including Hindi purna viram) but keep them
+    sentences = re.split(r'(?<=[.!?।॥|])\s+|\n+', text)
     chunks = []
     current_chunk = ""
     for sentence in sentences:

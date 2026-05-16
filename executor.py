@@ -13,11 +13,11 @@ def generate_audio_series(script_text, voice_type="Male", engine="Edge-TTS (Free
     Returns: (output_path, error_message)
     """
     start_time = time.time()
-    temp_dir = "temp_audio_chunks"
+    import uuid
+    session_id = uuid.uuid4().hex[:8]
+    temp_dir = f"temp_audio_chunks_{session_id}"
     
     try:
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
     except Exception as e:
         return None, f"Failed to initialize workspace: {e}"
@@ -103,7 +103,11 @@ def generate_audio_series(script_text, voice_type="Male", engine="Edge-TTS (Free
         return None, f"System Mastering Failure: {e}"
     
     if progress_callback: progress_callback(100, f"Production Finished in {time.time() - start_time:.1f}s")
+    
+    # Cleanup unique directory
+    try:
+        shutil.rmtree(temp_dir)
+    except OSError:
+        pass
+        
     return output_file, "Success"
-
-
-
